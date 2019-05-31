@@ -1,0 +1,1113 @@
+//---------------------------------------------------------------------------------------
+/* Copyright (c) 2007-2012 Eliot Eshelman
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+//---------------------------------------------------------------------------------------
+int perm( int index )
+{
+    int permData[512] = {
+    151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,
+    8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,
+    35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,
+    134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,
+    55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208, 89,
+    18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,
+    250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,
+    189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,
+    172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,
+    228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,
+    107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,
+    138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180, 
+    151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,
+    8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,
+    35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,
+    134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,
+    55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208, 89,
+    18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,
+    250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,
+    189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,
+    172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,
+    228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,
+    107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,
+    138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180 
+    };
+    return permData[index];
+};
+
+//---------------------------------------------------------------------------------------
+float3 grad3( int index )
+{
+    float grad3Data[12*3] = { 1.0f,1.0f,0.0f,-1.0f,1.0f,0.0f,1.0f,-1.0f,0.0f,-1.0f,
+                             -1.0f,0.0f,1.0f,0.0f,1.0f,-1.0f,0.0f,1.0f,1.0f,0.0f,-1.0f,
+                             -1.0f,0.0f,-1.0f,0.0f,1.0f,1.0f,0.0f,-1.0f,1.0f,0.0f,1.0f,
+                             -1.0f,0.0f,-1.0f,-1.0f };
+
+    return (float3)(grad3Data[index*3], grad3Data[(index*3) + 1], 
+            grad3Data[(index*3) + 2]);
+};
+
+//---------------------------------------------------------------------------------------
+float dotNoise( float3 g, float x, float y, float z ) 
+{
+    return g.x*x + g.y*y + g.z*z; 
+};
+
+//---------------------------------------------------------------------------------------
+int fastfloor( float x ) 
+{ 
+    if( x > 0.0f )
+    {
+        return (int)(x);
+    }
+    else
+    {
+        return (int)(x - 1);
+    }
+};
+
+//---------------------------------------------------------------------------------------
+float raw_noise_3d(     float x, 
+                        float y, 
+                        float z ) 
+{
+    float n0, n1, n2, n3; // Noise contributions from the four corners
+
+    // Skew the input space to determine which simplex cell we're in
+    float F3 = 1.0f/3.0f;
+    float s = (x+y+z)*F3; // Very nice and simple skew factor for 3D
+    int i = floor(x+s);
+    int j = floor(y+s);
+    int k = floor(z+s);
+
+    float G3 = 1.0f/6.0f; // Very nice and simple unskew factor, too
+    float t = (i+j+k)*G3;
+    float X0 = i-t; // Unskew the cell origin back to (x,y,z) space
+    float Y0 = j-t;
+    float Z0 = k-t;
+    float x0 = x-X0; // The x,y,z distances from the cell origin
+    float y0 = y-Y0;
+    float z0 = z-Z0;
+
+    // For the 3D case, the simplex shape is a slightly irregular tetrahedron.
+    // Determine which simplex we are in.
+    int i1, j1, k1; // Offsets for second corner of simplex in (i,j,k) coords
+    int i2, j2, k2; // Offsets for third corner of simplex in (i,j,k) coords
+
+    if( x0 >= y0 ) 
+    {
+        if( y0>=z0 ) 
+        { 
+            i1=1; j1=0; k1=0; i2=1; j2=1; k2=0; 
+        } // X Y Z order
+        else if( x0 >= z0 ) 
+        { 
+            i1=1; j1=0; k1=0; i2=1; j2=0; k2=1; 
+        } // X Z Y order
+        else 
+        { 
+            i1=0; j1=0; k1=1; i2=1; j2=0; k2=1; 
+        } // Z X Y order
+    }
+    else 
+    {   // x0<y0
+        if(y0<z0) 
+        { 
+            i1=0; j1=0; k1=1; i2=0; j2=1; k2=1; 
+        } // Z Y X order
+        else if(x0<z0) 
+        { 
+            i1=0; j1=1; k1=0; i2=0; j2=1; k2=1; 
+        } // Y Z X order
+        else 
+        { 
+            i1=0; j1=1; k1=0; i2=1; j2=1; k2=0; 
+        } // Y X Z order
+    }
+
+    // A step of (1,0,0) in (i,j,k) means a step of (1-c,-c,-c) in (x,y,z),
+    // a step of (0,1,0) in (i,j,k) means a step of (-c,1-c,-c) in (x,y,z), and
+    // a step of (0,0,1) in (i,j,k) means a step of (-c,-c,1-c) in (x,y,z), where
+    // c = 1/6.
+    float x1 = x0 - i1 + G3; // Offsets for second corner in (x,y,z) coords
+    float y1 = y0 - j1 + G3;
+    float z1 = z0 - k1 + G3;
+    float x2 = x0 - i2 + 2.0*G3; // Offsets for third corner in (x,y,z) coords
+    float y2 = y0 - j2 + 2.0*G3;
+    float z2 = z0 - k2 + 2.0*G3;
+    float x3 = x0 - 1.0 + 3.0*G3; // Offsets for last corner in (x,y,z) coords
+    float y3 = y0 - 1.0 + 3.0*G3;
+    float z3 = z0 - 1.0 + 3.0*G3;
+    
+    // Work out the hashed gradient indices of the four simplex corners
+    int ii = i & 255;
+    int jj = j & 255;
+    int kk = k & 255;
+    int gi0 = perm(ii+perm(jj+perm(kk))) % 12;
+    int gi1 = perm(ii+i1+perm(jj+j1+perm(kk+k1))) % 12;
+    int gi2 = perm(ii+i2+perm(jj+j2+perm(kk+k2))) % 12;
+    int gi3 = perm(ii+1+perm(jj+1+perm(kk+1))) % 12;
+
+    // Calculate the contribution from the four corners
+    float t0 = 0.6 - x0*x0 - y0*y0 - z0*z0;
+    if( t0 < 0 ) 
+    {
+        n0 = 0.0;
+    }
+    else 
+    {
+        t0 *= t0;
+        n0 = t0 * t0 * dotNoise(grad3(gi0), x0, y0, z0);
+    }
+
+    float t1 = 0.6 - x1*x1 - y1*y1 - z1*z1;
+    if( t1<0 )
+    {
+        n1 = 0.0;
+    }
+    else 
+    {
+        t1 *= t1;
+        n1 = t1 * t1 * dotNoise(grad3(gi1), x1, y1, z1);
+    }
+
+    float t2 = 0.6 - x2*x2 - y2*y2 - z2*z2;
+    if( t2 < 0 )
+    {
+        n2 = 0.0;
+    }
+    else 
+    {
+        t2 *= t2;
+        n2 = t2 * t2 * dotNoise(grad3(gi2), x2, y2, z2);
+    }
+
+    float t3 = 0.6 - x3*x3 - y3*y3 - z3*z3;
+    if( t3 < 0 )
+    { 
+        n3 = 0.0;
+    }
+    else 
+    {
+        t3 *= t3;
+        n3 = t3 * t3 * dotNoise(grad3(gi3), x3, y3, z3);
+    }
+
+    // Add contributions from each corner to get the final noise value.
+    // The result is scaled to stay just inside [-1,1]
+    return 32.0*(n0 + n1 + n2 + n3);
+};
+
+//---------------------------------------------------------------------------------------
+float octave_noise_3d(  float octaves, 
+                        float persistence, 
+                        float scale, 
+                        float x, 
+                        float y, 
+                        float z ) 
+{
+    float total = 0;
+    float frequency = scale;
+    float amplitude = 1;
+
+    // We have to keep track of the largest possible amplitude,
+    // because each octave adds more, and we need a value in [-1, 1].
+    float maxAmplitude = 0;
+    int i = 0;
+    for( i=0; i < octaves; i++ ) 
+    {
+        total += raw_noise_3d( x * frequency, y * frequency, z * frequency ) * amplitude;
+
+        frequency *= 2.0f;
+        maxAmplitude += amplitude;
+        amplitude *= persistence;
+    }
+
+    return total / maxAmplitude;
+};
+/// end of Citation
+
+// @brief some useful function, which are missed in Blink
+// Alexei Selivanov (April 4, 2018)
+//---------------------------------------------------------------------------------------
+float2 lerp2D(float2 a, float2 b, float x)
+{
+  return a+(b-a)*x;
+}
+
+//---------------------------------------------------------------------------------------
+float3 mix(float3 a, float3 b, float m){
+    return a*(1-m)+b*m;   
+}
+
+//---------------------------------------------------------------------------------------
+float smoothstep(const float a, const float b, const float x)
+{
+  float t = clamp( (x-a)/(b-a), 0.0f, 1.0f);
+  return t*t*(3.0f-2.0f*t);
+}
+
+//---------------------------------------------------------------------------------------
+float smootherstep(const float a, const float b, const float x)
+{
+  float t = clamp( (x-a)/(b-a), 0.0f, 1.0f);
+  return t*t*t*(t*(t*6-15)+10);
+}
+
+//---------------------------------------------------------------------------------------
+float fit(float num, float oldmin, float oldmax, float newmin, float newmax)
+{
+  if(num <= oldmin) return newmin;
+  if(num >= oldmax) return newmax;
+  return (num - oldmin)*(newmax - newmin)/(oldmax - oldmin) + newmin;
+}
+
+//---------------------------------------------------------------------------------------
+float fract(float x){
+    return x-floor(x);
+}
+
+//---------------------------------------------------------------------------------------
+float random(float x){
+  return fract(sin(x)*10.0);
+}
+
+//---------------------------------------------------------------------------------------
+float saturate (float x)
+{
+    return min(1.0f, max(0.0f,x));
+}
+
+//---------------------------------------------------------------------------------------
+float3 saturate (float3 x)
+{
+    return float3( saturate(x.x), saturate(x.y), saturate(x.z) );
+}
+/// end of Citation
+
+//---------------------------------------------------------------------------------------
+// --- Spectral Zucconi --------------------------------------------
+// By Alan Zucconi
+// Based on GPU Gems: https://developer.nvidia.com/sites/all/modules/custom/gpugems/books/GPUGems/gpugems_ch08.html
+// But with values optimised to match as close as possible the visible spectrum
+// Fits this: https://commons.wikimedia.org/wiki/File:Linear_visible_spectrum.svg
+// With weighter MSE (RGB weights: 0.3, 0.59, 0.11)
+float3 bump3y (float3 x, float3 yoffset)
+{
+  float3 y = float3(1.,1.,1.) - x * x;
+  y = saturate(y-yoffset);
+  return y;
+}
+float3 spectral_zucconi (float x)
+{
+    // w: [400, 700]
+  // x: [0,   1]
+  // float x = saturate((w - 400.0)/ 300.0);
+
+  const float3 cs = float3(3.54541723, 2.86670055, 2.29421995);
+  const float3 xs = float3(0.69548916, 0.49416934, 0.28269708);
+  const float3 ys = float3(0.02320775, 0.15936245, 0.53520021);
+
+  return bump3y ( cs * (x - xs), ys);
+}
+/// end of Citation
+
+// [Accessed 2019] Modified from: https://www.shadertoy.com/view/tdSSD1
+//---------------------------------------------------------------------------------------
+float regShape(float2 p, int N, float size)
+{   
+    float a=atan2(p.x,p.y)+0.2f;
+    float b=6.28319/float(N);
+    float d=cos(floor(0.5+a/b)*b-a)*length(p);
+    d+=sin(a*N)*size*0.025f;
+    float f=smootherstep(size,size+0.01f, d);     
+    return f;
+}
+/// end of Citation
+
+// [Accessed 2019] Modified from: https://www.shadertoy.com/view/4sX3Rs
+//---------------------------------------------------------------------------------------
+float3 detail(float2 uvOffset, 
+              float2 positionUV,
+              float size_detail,
+              float4 colour_detail,
+              float3 offsetColour,
+              int angles,
+              bool type)
+{
+  float3 result = float3(0.0f);
+  if (type == true) 
+  {
+    float f1 = max(0.01f-regShape(uvOffset + offsetColour.x*positionUV, angles, size_detail*0.05f),0.0f)*
+                (colour_detail.w*0.5f*colour_detail.x);
+    float f2 = max(0.01f-regShape(uvOffset + offsetColour.y*positionUV, angles, size_detail*0.05f),0.0f)*
+                (colour_detail.w*0.5f*colour_detail.y);
+    float f3 = max(0.01f-regShape(uvOffset + offsetColour.z*positionUV, angles, size_detail*0.05f),0.0f)*
+                (colour_detail.w*0.5f*colour_detail.z);
+    result = float3(f1,f2,f3);
+  }
+  else
+  {
+    float f1 = max(0.01f-pow(length(uvOffset+offsetColour.x*positionUV),size_detail),0.0f)*
+                (colour_detail.w*colour_detail.x);
+    float f2 = max(0.01f-pow(length(uvOffset+offsetColour.y*positionUV),size_detail),0.0f)*
+                (colour_detail.w*colour_detail.y);
+    float f3 = max(0.01f-pow(length(uvOffset+offsetColour.z*positionUV),size_detail),0.0f)*
+                (colour_detail.w*colour_detail.z);   
+    result = float3(f1,f2,f3);
+  }
+  return result;
+}
+
+//---------------------------------------------------------------------------------------
+float3 smallDot(float2 uvOffset,
+                float2 positionUV,
+                float dot_brightness_detail,
+                float4 colour_detail,
+                float distance)
+{
+    float c2 =  max(0.04f/pow(length(uvOffset-positionUV*distance/2.0f + 0.09f), 1.0f), 0.0f)/20.0f;
+    float3 colour_small_dot = float3(dot_brightness_detail * colour_detail.w*colour_detail.x*c2,
+                                    dot_brightness_detail * colour_detail.w*colour_detail.y*c2,
+                                    dot_brightness_detail * colour_detail.w*colour_detail.z*c2);
+
+    return colour_small_dot;
+}
+
+//---------------------------------------------------------------------------------------
+float3 secondary(float2 uvOffset,
+              float2 positionUV,
+              float secondary_brightness_detail,
+              float4 colour_detail,
+              float size,
+              float distance,
+              int angles,
+              bool type)
+{
+    float3 colour_secondary = float3(0.0f);
+    if (type == true) 
+    {
+        float s = max(0.01f - regShape(uvOffset*5.0f + positionUV* distance + 0.25f, angles, size), 0.0f)*7.0f;
+        colour_secondary = float3(secondary_brightness_detail * colour_detail.w*0.5f*colour_detail.x*s,
+                                  secondary_brightness_detail * colour_detail.w*0.5f*colour_detail.y*s,
+                                  secondary_brightness_detail * colour_detail.w*0.5f*colour_detail.z*s);
+    }
+    else
+    {
+        float s = max(0.01f-pow(length(uvOffset*5.0f+positionUV* distance + 0.25f),size*10.0f),0.0f)*7.0f;
+        colour_secondary = float3(secondary_brightness_detail * colour_detail.w*colour_detail.x*s,
+                                  secondary_brightness_detail * colour_detail.w*colour_detail.y*s,
+                                  secondary_brightness_detail * colour_detail.w*colour_detail.z*s);
+    }
+
+    return colour_secondary;
+
+};
+/// end of Citation
+
+//---------------------------------------------------------------------------------------
+//------------------------ MAIN KERNEL -------------------------------------
+
+//---------------------------------------------------------------------------------------
+///  @file lens_flare.blink
+///  @brief This file contains implementations of lens flare construction.
+//---------------------------------------------------------------------------------------
+kernel LensFlare : ImageComputationKernel<ePixelWise>
+{
+  //-----------------------------------------------------------------------------------
+  // @brief src input image (or constant in case, when there is no input)
+  //-----------------------------------------------------------------------------------
+  Image<eRead, eAccessRandom, eEdgeClamped> src; 
+  //----------------------------------------------------------------------------------- 
+  // @brief dst output image
+  //-----------------------------------------------------------------------------------
+  Image<eWrite, eAccessPoint> dst;
+
+param:
+  // --- Main Paramenters ---
+  //-----------------------------------------------------------------------------------
+  /// @brief position of the main glow
+  //-----------------------------------------------------------------------------------
+  float2 m_flare_position;
+  //-----------------------------------------------------------------------------------
+  /// @brief type of secondary details: circular of hexagonal/octagonal
+  //-----------------------------------------------------------------------------------
+  int m_type_secondary_details;
+  //-----------------------------------------------------------------------------------
+  /// @brief number of angles in case of hexagonal/octagonal secondary details
+  //-----------------------------------------------------------------------------------
+  int m_angles;
+
+
+  // --- Enable/Disable Paramenters ---
+  //-----------------------------------------------------------------------------------
+  /// @brief enables starburst in a center of a flare instead of oreol
+  //-----------------------------------------------------------------------------------
+  int m_enable_starburst;
+  //-----------------------------------------------------------------------------------
+  /// @brief enables anamorphic
+  //-----------------------------------------------------------------------------------
+  int m_enable_anamorphic;
+  //-----------------------------------------------------------------------------------
+  /// @brief enables main rainbow
+  //-----------------------------------------------------------------------------------
+  int m_enable_main_rainbow;
+  //-----------------------------------------------------------------------------------
+  /// @brief enables floating detail
+  //-----------------------------------------------------------------------------------
+  int m_enable_floating_detail;
+  //-----------------------------------------------------------------------------------
+  /// @brief enables detail_1
+  //-----------------------------------------------------------------------------------
+  int m_enable_detail_1;
+  //-----------------------------------------------------------------------------------
+  /// @brief enables secondary detail_1
+  //-----------------------------------------------------------------------------------
+  int m_enable_secondary_detail_1;
+  //-----------------------------------------------------------------------------------
+  /// @brief enables dot_1
+  //-----------------------------------------------------------------------------------
+  int m_enable_dot_1;
+  int m_enable_detail_2;
+  int m_enable_secondary_detail_2;
+  int m_enable_dot_2;
+  int m_enable_detail_3;
+  int m_enable_secondary_detail_3;
+  int m_enable_dot_3;
+  int m_enable_detail_4;
+  int m_enable_secondary_detail_4;
+  int m_enable_dot_4;
+
+
+  // --- Anamorphic Paramenters ---
+  //-----------------------------------------------------------------------------------
+  /// @brief length for the main anamorphic line
+  //-----------------------------------------------------------------------------------
+  float  m_main_anamorphic_line_length;
+  //-----------------------------------------------------------------------------------
+  /// @brief brightness of the main anamorphic line
+  //-----------------------------------------------------------------------------------
+  float  m_main_anamorphic_line_brighntess;
+  //-----------------------------------------------------------------------------------
+  /// @brief colour of the main anamorphic line
+  //-----------------------------------------------------------------------------------
+  float4  m_main_anamorphic_line_colour;
+
+
+  // --- Oreol Paramenters ---
+  //-----------------------------------------------------------------------------------
+  /// @brief size of the main glowing star, which places in center of flare position
+  //-----------------------------------------------------------------------------------
+  float  m_oreol_size;
+  //-----------------------------------------------------------------------------------
+  /// @brief attenuation of the glowing star
+  //-----------------------------------------------------------------------------------
+  float  m_oreol_attenuation;
+  //-----------------------------------------------------------------------------------
+  /// @brief colour of the glowing star
+  //-----------------------------------------------------------------------------------
+  float4  m_oreol_colour;
+
+
+  // --- Starburst Paramenters ---
+  //-----------------------------------------------------------------------------------
+  /// @brief size of the starburst, which places in center of flare position
+  //-----------------------------------------------------------------------------------
+  float  m_starburst_size;
+  //-----------------------------------------------------------------------------------
+  /// @brief brightness of the starburst
+  //-----------------------------------------------------------------------------------
+  float  m_starburst_brightness;
+  //-----------------------------------------------------------------------------------
+  /// @brief starburst angles sharpness
+  //-----------------------------------------------------------------------------------
+  float  m_starburst_sharpness;
+  //-----------------------------------------------------------------------------------
+  /// @brief starburst colour
+  //-----------------------------------------------------------------------------------
+  float4  m_starburst_colour;
+
+
+  // --- Central Rainbow Paramenters ---
+  //-----------------------------------------------------------------------------------
+  /// @brief radius of the rainbow, which places in center of flare position
+  //-----------------------------------------------------------------------------------
+  float m_central_rainbow_radius;
+  //-----------------------------------------------------------------------------------
+  /// @brief width of the rainbow, which places in center of flare position
+  //-----------------------------------------------------------------------------------
+  float m_central_rainbow_width;
+  //-----------------------------------------------------------------------------------
+  /// @brief brightness of the rainbow, which places in center of flare position
+  //-----------------------------------------------------------------------------------
+  float m_central_rainbow_brightness;
+
+
+  // --- Floating Far Detail Paramenters ---
+  //-----------------------------------------------------------------------------------
+  /// @brief colour of the far floating detail 
+  //-----------------------------------------------------------------------------------
+  float4 m_colour_floating_detail;
+  //-----------------------------------------------------------------------------------
+  /// @brief general size of the far floating detail 
+  //-----------------------------------------------------------------------------------
+  float m_size_floating_detail;
+  //-----------------------------------------------------------------------------------
+  /// @brief size of the brightest part of the far floating detail 
+  //-----------------------------------------------------------------------------------
+  float m_kernel_size_floating_detail;
+  //-----------------------------------------------------------------------------------
+  /// @brief floating detail shift 
+  //-----------------------------------------------------------------------------------
+  float3 m_shift_floating_detail;
+
+
+  // It was considered to restrict number of details, secondary details and dots to 4
+  // Due to blink's limits accroding to typification, especcial in dynamic parameters
+  // it was decided to create static 4 parameters for all possible details, but hide 
+  // them of upper (gizmo/group) level accroding to python scripting
+  // Moreover, it was found out, that it is impossible to assign parameter to array 
+  // via defineParam. So it will be done on python (gizmo/group) UI level
+  // --- Detail Paramenters ---
+  //-----------------------------------------------------------------------------------
+  /// @brief colour of details 
+  //-----------------------------------------------------------------------------------
+  float4 m_colour_detail_1;
+  //-----------------------------------------------------------------------------------
+  /// @brief size of details 
+  //-----------------------------------------------------------------------------------
+  float m_size_detail_1;
+  //-----------------------------------------------------------------------------------
+  /// @brief distance for details 
+  //-----------------------------------------------------------------------------------
+  float m_distance_detail_1;
+  //-----------------------------------------------------------------------------------
+  /// @brief abberation shift for details 
+  //-----------------------------------------------------------------------------------
+  float3 m_shift_detail_1;
+
+  float4 m_colour_detail_2;
+  float m_size_detail_2;
+  float m_distance_detail_2;
+  float3 m_shift_detail_2;
+
+  float4 m_colour_detail_3;
+  float m_size_detail_3;
+  float m_distance_detail_3;
+  float3 m_shift_detail_3;
+
+  float4 m_colour_detail_4;
+  float m_size_detail_4;
+  float m_distance_detail_4;
+  float3 m_shift_detail_4;
+
+
+  // --- Secondary Detail Paramenters ---
+  //-----------------------------------------------------------------------------------
+  /// @brief colour of secondary details 
+  //-----------------------------------------------------------------------------------
+  float m_secondary_brightness_detail_1;
+  //-----------------------------------------------------------------------------------
+  /// @brief colour of secondary details 
+  //-----------------------------------------------------------------------------------
+  float m_secondary_size_detail_1;
+
+  float m_secondary_brightness_detail_2;
+  float m_secondary_size_detail_2;
+
+  float m_secondary_brightness_detail_3;
+  float m_secondary_size_detail_3;
+
+  float m_secondary_brightness_detail_4;
+  float m_secondary_size_detail_4;
+  
+
+  // --- Dot Paramenters ---
+  //-----------------------------------------------------------------------------------
+  /// @brief brightness of dot 
+  //-----------------------------------------------------------------------------------
+  float m_dot_brightness_detail_1;
+  //-----------------------------------------------------------------------------------
+  /// @brief position of details 
+  //-----------------------------------------------------------------------------------
+  float m_dot_distance_detail_1;
+  
+  float m_dot_brightness_detail_2;
+  float m_dot_distance_detail_2;
+
+  float m_dot_brightness_detail_3;
+  float m_dot_distance_detail_3;
+
+  float m_dot_brightness_detail_4;
+  float m_dot_distance_detail_4;
+
+local:
+  int src_width;
+  int src_height;
+
+  void define() 
+  {
+    // --- Main Paramenters ---
+    defineParam(m_flare_position, "Flare_Position",  float2(800.0f, 800.0f));
+    defineParam(m_type_secondary_details, "Switch to Hexagons", 0);
+    defineParam(m_angles, "Angles", 6);
+
+    // --- Enable/Disable Paramenters ---
+    defineParam(m_enable_starburst, "Enable Starburst", 0);
+    defineParam(m_enable_anamorphic, "Enable Anamorphic", 0);
+    defineParam(m_enable_main_rainbow, "Enable Main Rainbow", 1);
+    defineParam(m_enable_floating_detail, "Enable Floating Detail", 1);
+    defineParam(m_enable_detail_1, "Enable Detail_1", 1);
+    defineParam(m_enable_secondary_detail_1, "Enable Secondary Detail_1", 1);
+    defineParam(m_enable_dot_1, "Enable Dot_1", 1);
+    defineParam(m_enable_detail_2, "Enable Detail_2", 1);
+    defineParam(m_enable_secondary_detail_2, "Enable Secondary Detail_2", 1);
+    defineParam(m_enable_dot_2, "Enable Dot_2", 1);
+    defineParam(m_enable_detail_3, "Enable Detail_3", 1);
+    defineParam(m_enable_secondary_detail_3, "Enable Secondary Detail_3", 1);
+    defineParam(m_enable_dot_3, "Enable Dot_3", 1);
+    defineParam(m_enable_detail_4, "Enable Detail_4", 1);
+    defineParam(m_enable_secondary_detail_4, "Enable Secondary Detail_4", 1);
+    defineParam(m_enable_dot_4, "Enable Dot_4", 1);
+
+    // --- Anamorphic Paramenters ---
+    defineParam(m_main_anamorphic_line_length, "Length for the main anamorphic line", 0.5f);
+    defineParam(m_main_anamorphic_line_brighntess, "Brightness of the main anamorphic line", 1.0f);
+    defineParam(m_main_anamorphic_line_colour, "Colour of the main anamorphic line", float4(1.0f, 1.0f, 1.0f, 1.0f));
+
+    // --- Starburst Paramenters ---
+    defineParam(m_starburst_size, "Starburst Size", 1.0f);
+    defineParam(m_starburst_brightness, "Starburst Brightness", 0.25f);
+    defineParam(m_starburst_sharpness, "Starburst Sharpness", 3.0f);
+    defineParam(m_starburst_colour, "Starburst Colour", float4(1.0f, 1.0f, 1.0f, 1.0f));
+
+    // --- Oreol Paramenters ---
+    defineParam(m_oreol_size, "Oreol Size", 250.0f);
+    defineParam(m_oreol_attenuation, "Oreol Attenuation", 0.0f);
+    defineParam(m_oreol_colour, "Oreol Colour", float4(1.0f, 1.0f, 1.0f, 1.0f));
+
+    // --- Central Rainbow Paramenters ---
+    defineParam(m_central_rainbow_radius, "Central Rainbow Radius", 20.0f);
+    defineParam(m_central_rainbow_width, "Central Rainbow Width", 275.0f);
+    defineParam(m_central_rainbow_brightness, "Central Rainbow Brightness", 0.125f);
+
+    // --- Floating Far Detail Paramenters ---
+    defineParam(m_colour_floating_detail, "Colour Floating Detail",  float4(0.44f, 0.42f, 0.46f, 0.5f));
+    defineParam(m_size_floating_detail, "Size Floating Detail",  1.5f);
+    defineParam(m_kernel_size_floating_detail, "Kernel Size Floating Detail",  320.0f);
+    defineParam(m_shift_floating_detail, "Shift Floating Detail",  float3(0.8f, 0.84f, 0.89f));
+
+    // --- Detail Paramenters ---
+    defineParam(m_colour_detail_1, "Colour Detail1",  float4(0.9f, 0.7f, 0.3f, 5.0f));
+    defineParam(m_size_detail_1, "Size Detail1",  2.4f);
+    defineParam(m_distance_detail_1, "Distance Detail1",  -0.5f);
+    defineParam(m_shift_detail_1, "Aberration Shift for Detail1", float3(0.4f, 0.425f, 0.45f));
+    
+    defineParam(m_colour_detail_2, "Colour Detail2",  float4(0.8f, 0.8f, 0.8f, 2.0f));
+    defineParam(m_size_detail_2, "Size Detail2",  5.5f);
+    defineParam(m_distance_detail_2, "Distance Detail2",  -0.4f);
+    defineParam(m_shift_detail_2, "Aberration Shift for Detail2", float3(0.2f, 0.25f, 0.275f));
+
+    defineParam(m_colour_detail_3, "Colour Detail3",  float4(0.8f, 0.4f, 0.3f, 6.0f));
+    defineParam(m_size_detail_3, "Size Detail3",  1.6f);
+    defineParam(m_distance_detail_3, "Distance Detail3",  -0.5f);
+    defineParam(m_shift_detail_3, "Aberration Shift for Detail3", float3(-0.3f, -0.325f, -0.35f));
+
+    defineParam(m_colour_detail_4, "Colour Detail4",  float4(0.7f, 0.9f, 0.6f, 5.0f));
+    defineParam(m_size_detail_4, "Size Detail4",  1.4f);
+    defineParam(m_distance_detail_4, "Distance Detail4",  -0.8f);
+    defineParam(m_shift_detail_4, "Aberration Shift for Detail4", float3(-0.3f, -0.315f, -0.325f));
+
+    // --- Secondary Detail Paramenters ---
+    defineParam(m_secondary_brightness_detail_1, "Secondary Brightness Detail1",  0.3f);
+    defineParam(m_secondary_size_detail_1, "Secondary Size Detail1",  0.5f);
+
+    defineParam(m_secondary_brightness_detail_2, "Secondary Brightness Detail2",  0.3f);
+    defineParam(m_secondary_size_detail_2, "Secondary Size Detail2",  1.15f);
+
+    defineParam(m_secondary_brightness_detail_3, "Secondary Brightness Detail3",  0.3f);
+    defineParam(m_secondary_size_detail_3, "Secondary Size Detail3",  0.97f);
+
+    defineParam(m_secondary_brightness_detail_4, "Secondary Brightness Detail4",  0.3f);
+    defineParam(m_secondary_size_detail_4, "Secondary Size Detail4",  0.15f);
+
+    // --- Dot Paramenters ---
+    defineParam(m_dot_brightness_detail_1, "Dot Brightness Detail1",  0.3f);
+    defineParam(m_dot_distance_detail_1, "Dot Distance Detail1",  0.125f);
+
+    defineParam(m_dot_brightness_detail_2, "Dot Brightness Detail2",  0.3f);
+    defineParam(m_dot_distance_detail_2, "Dot Distance Detail2",  -2.5f);
+
+    defineParam(m_dot_brightness_detail_3, "Dot Brightness Detail3",  0.3f);
+    defineParam(m_dot_distance_detail_3, "Dot Distance Detail3",  -2.5f);
+
+    defineParam(m_dot_brightness_detail_4, "Dot Brightness Detail4",  0.3f);
+    defineParam(m_dot_distance_detail_4, "Dot Distance Detail4",  -1.25f);
+  }
+
+  void init() 
+  {
+    src_width = src.bounds.width();
+    src_height = src.bounds.height();
+  }
+
+  void process(int2 pos) 
+  {
+    float2 posf(pos.x, pos.y);
+    SampleType(dst) sample(0.0f);
+
+    // -------------- MAIN PARAMETERS --------------
+    float2 delta = posf - m_flare_position;
+    float deltaDistance = length(delta);
+    float2 positionUV = m_flare_position / float2(src_width, src_height) - 0.5;
+    positionUV.x *= src_width/src_height;
+    float positionUVDistance = length(positionUV);
+
+    float2 uv = posf / float2(src_width, src_height) - 0.5f;
+    float2 uvDistance = uv * length(uv);
+	uv.x *= src_width/src_height;
+
+    // -------------- OREOL --------------
+    float attenuation_size = m_oreol_size + 10000.0f * (1 - 
+                            clamp(m_oreol_attenuation, 0.0f, 1.0f));
+    float invert_size = 1.0f/(attenuation_size * attenuation_size);
+
+    float value = clamp(1.0f - dot(delta, delta) * invert_size, 0.0f, 1.0f);
+    value = clamp(pow(value, 10) - 0.001f, 0.0f, 1.0f);
+
+    float colour_oreol = 0.0f;
+
+    colour_oreol += (0.01+m_oreol_size*.2)/(length(delta)+0.001f);
+    float noise_oreol = octave_noise_3d(8.0f, 0.6f, 0.5f, atan2(delta.x,delta.y) 
+                    ,0.0f, 0.0f) * 0.55f;   
+    colour_oreol += noise_oreol * colour_oreol;
+
+    colour_oreol *= value;
+
+    sample.x += colour_oreol * m_oreol_colour.x;
+    sample.y += colour_oreol * m_oreol_colour.y;
+    sample.z += colour_oreol * m_oreol_colour.z;
+
+    // -------------- STARBURST --------------
+    if (m_enable_starburst == 1) 
+    { 
+
+        float f = 1.0f/clamp(m_starburst_sharpness, 0.001f, 6.0f); 
+        float2 size_starburst = m_starburst_size* fabs(delta+delta)/src_height;
+        float colour_starburst = clamp(1.0f - 2.0f*pow((  pow(2.0f*size_starburst.x, f) + 
+                                pow(size_starburst.x + size_starburst.y*1.7f, f) + 
+                                pow(fabs(size_starburst.x - size_starburst.y*1.7f), f))/
+                                2.5f, 1.0f/f), 0.0f, 10000.0f) * m_starburst_brightness;
+
+        sample.x += colour_starburst * m_starburst_colour.x;
+        sample.y += colour_starburst * m_starburst_colour.y;
+        sample.z += colour_starburst * m_starburst_colour.z;
+    }
+
+    // -------------- ANAMORPHIC MAIN LINE -------------- 
+    if (m_enable_anamorphic == 1)
+    {
+        float2 distance_sqr = fabs(delta+delta)/src_height;
+        distance_sqr *= m_main_anamorphic_line_length;
+        float main_anamorphic_line = max( pow( 1.0f - distance_sqr.y, 128.0f ) * 
+                                        ( 1.0f - length(distance_sqr) ), 0.0f ) * 
+                                        m_main_anamorphic_line_brighntess;
+
+        sample.x += main_anamorphic_line * m_main_anamorphic_line_colour.x;
+        sample.y += main_anamorphic_line * m_main_anamorphic_line_colour.y;
+        sample.z += main_anamorphic_line * m_main_anamorphic_line_colour.z;
+    }
+
+    // -------------- RAINBOW --------------
+    if (m_enable_main_rainbow == 1)
+    {
+        float mm = fit( deltaDistance, m_central_rainbow_radius, m_central_rainbow_radius +
+                m_central_rainbow_width, 0.0f, 1.0f);
+        float3 spectrum = spectral_zucconi( fract(mm/1.0f+0.0f)) ;
+        if (deltaDistance > m_central_rainbow_radius + m_central_rainbow_width) spectrum *=0.0f;
+        if (deltaDistance < m_central_rainbow_radius) spectrum *=0.0f;
+
+        float noise = clamp(raw_noise_3d(atan2(delta.x,delta.y)*50.0f, 0.0f, 0.0f) * 0.15f,
+                    0.1f, 1.0f);
+
+        sample.x += spectrum.x * noise * m_central_rainbow_brightness;
+        sample.y += spectrum.y * noise * m_central_rainbow_brightness;
+        sample.z += spectrum.z * noise * m_central_rainbow_brightness;
+    }
+    
+
+    // -------------- FLOATING DETAIL --------------
+    if (m_enable_floating_detail == 1)
+    {
+        float floating_x = max(1.0f/(1.0f+m_kernel_size_floating_detail*
+                        pow(length(uvDistance+m_shift_floating_detail.x*positionUV),
+                        m_size_floating_detail)),0.0f)*(m_colour_floating_detail.w*
+                        m_colour_floating_detail.x);
+        float floating_y = max(1.0f/(1.0f+m_kernel_size_floating_detail*
+                        pow(length(uvDistance+m_shift_floating_detail.y*positionUV),
+                        m_size_floating_detail)),0.0f)*(m_colour_floating_detail.w*
+                        m_colour_floating_detail.y);
+        float floating_z = max(1.0f/(1.0f+m_kernel_size_floating_detail*
+                        pow(length(uvDistance+m_shift_floating_detail.z*positionUV),
+                        m_size_floating_detail)),0.0f)*(m_colour_floating_detail.w*
+                        m_colour_floating_detail.z);
+
+        sample.x += floating_x;
+        sample.y += floating_y;
+        sample.z += floating_z;
+    }
+
+    // -------------- DETAIL 1 --------------
+    float2 uvOffset = lerp2D(uv,uvDistance,m_distance_detail_1);
+
+    if (m_enable_detail_1 == 1)
+    {
+        float3 colour_detail_1 = detail(uvOffset, positionUV, m_size_detail_1, m_colour_detail_1, 
+                                 m_shift_detail_1, m_angles, m_type_secondary_details);
+
+
+        if (m_type_secondary_details == 1)
+        {
+            float shift_detail_1_average = (m_shift_detail_1.x + m_shift_detail_1.y +
+                                            m_shift_detail_1.z)/3;
+            float3 colour_detail_1_edge = detail(uvOffset, positionUV, m_size_detail_1 - 
+                                          m_size_detail_1*0.1f, m_colour_detail_1, 
+                                          float3(shift_detail_1_average, shift_detail_1_average, 
+                                          shift_detail_1_average), m_angles, m_type_secondary_details);
+
+            colour_detail_1_edge = colour_detail_1 - colour_detail_1_edge;
+            colour_detail_1 += colour_detail_1_edge;
+        }
+
+        sample.x += colour_detail_1.x;
+        sample.y += colour_detail_1.y;
+        sample.z += colour_detail_1.z;
+    }
+
+    // -------------- DOT 1 --------------
+    if (m_enable_dot_1 == 1)
+    {
+        float3 small_dot_1 = smallDot(uvOffset, positionUV, m_dot_brightness_detail_1,
+                            m_colour_detail_1, m_dot_distance_detail_1);
+                                
+        sample.x += small_dot_1.x;
+        sample.y += small_dot_1.y;
+        sample.z += small_dot_1.z;
+    }
+
+    // -------------- SECONDARY DETAIL 1 --------------
+    if (m_enable_secondary_detail_1 == 1)
+    {
+        float3 secondary_1 = secondary(uvOffset, positionUV, m_secondary_brightness_detail_1,
+                             m_colour_detail_1, m_secondary_size_detail_1, 0.77f, m_angles, 
+                             m_type_secondary_details);
+
+        if (m_type_secondary_details == 1)
+        {
+            float3 secondary_1_edge = secondary(uvOffset, positionUV, m_secondary_brightness_detail_1,
+                                       m_colour_detail_1, m_secondary_size_detail_1 - m_secondary_size_detail_1*0.1f, 
+                                       0.77f, m_angles, m_type_secondary_details);
+
+            secondary_1_edge = secondary_1 - secondary_1_edge;
+            secondary_1 += secondary_1_edge;
+        }
+
+        sample.x += secondary_1.x;
+        sample.y += secondary_1.y;
+        sample.z += secondary_1.z;
+    }
+
+    // -------------- DETAIL 2 --------------
+    uvOffset = lerp2D(uv,uvDistance,m_distance_detail_2);
+	
+    if (m_enable_detail_2 == 1)
+    {
+        float3 colour_detail_2 = detail(uvOffset, positionUV, m_size_detail_2, m_colour_detail_2, 
+                                 m_shift_detail_2, m_angles, m_type_secondary_details);
+
+        if (m_type_secondary_details == 1)
+        {
+            float shift_detail_2_average = (m_shift_detail_2.x + m_shift_detail_2.y +
+                                            m_shift_detail_2.z)/3;
+            float3 colour_detail_2_edge = detail(uvOffset, positionUV, m_size_detail_2 - 
+                                          m_size_detail_2*0.1f, m_colour_detail_2, 
+                                          float3(shift_detail_2_average, shift_detail_2_average, 
+                                          shift_detail_2_average), m_angles, m_type_secondary_details);
+
+            colour_detail_2_edge = colour_detail_2 - colour_detail_2_edge;
+            colour_detail_2 += colour_detail_2_edge;
+        }
+
+        sample.x += colour_detail_2.x;
+        sample.y += colour_detail_2.y;
+        sample.z += colour_detail_2.z;
+    }
+
+    // -------------- DOT 2 --------------
+    if (m_enable_dot_2 == 1)
+    {
+        float3 small_dot_2 = smallDot(uvOffset, positionUV, m_dot_brightness_detail_2,
+                                    m_colour_detail_2, m_dot_distance_detail_2);
+                                
+        sample.x += small_dot_2.x;
+        sample.y += small_dot_2.y;
+        sample.z += small_dot_2.z;
+    }
+
+    // -------------- SECONDARY DETAIL 2 --------------
+    if (m_enable_secondary_detail_2 == 1)
+    {
+        float3 secondary_2 = secondary(uvOffset, positionUV, m_secondary_brightness_detail_2,
+                                m_colour_detail_2, m_secondary_size_detail_2, 4.1f, m_angles, 
+                                m_type_secondary_details);
+
+        if (m_type_secondary_details == 1)
+        {
+            float3 secondary_2_edge = secondary(uvOffset, positionUV, m_secondary_brightness_detail_2,
+                                       m_colour_detail_2, m_secondary_size_detail_2 - m_secondary_size_detail_2*0.1f, 
+                                       4.1f, m_angles, m_type_secondary_details);
+
+            secondary_2_edge = secondary_2 - secondary_2_edge;
+            secondary_2 += secondary_2_edge;
+        }
+
+        sample.x += secondary_2.x;
+        sample.y += secondary_2.y;
+        sample.z += secondary_2.z;
+    }
+
+    // -------------- DETAIL 3 --------------
+	uvOffset = lerp2D(uv,uvDistance,m_distance_detail_3);
+	
+    if (m_enable_detail_3 == 1)
+    {
+        float3 colour_detail_3 = detail(uvOffset, positionUV, m_size_detail_3, m_colour_detail_3, 
+                                 m_shift_detail_3, m_angles, m_type_secondary_details);
+
+        if (m_type_secondary_details == 1)
+        {
+            float shift_detail_3_average = (m_shift_detail_3.x + m_shift_detail_3.y +
+                                            m_shift_detail_3.z)/3;
+            float3 colour_detail_3_edge = detail(uvOffset, positionUV, m_size_detail_3 - 
+                                          m_size_detail_3*0.1f, m_colour_detail_3, 
+                                          float3(shift_detail_3_average, shift_detail_3_average, 
+                                          shift_detail_3_average), m_angles, m_type_secondary_details);
+
+            colour_detail_3_edge = colour_detail_3 - colour_detail_3_edge;
+            colour_detail_3 += colour_detail_3_edge;
+        }
+
+        sample.x += colour_detail_3.x;
+        sample.y += colour_detail_3.y;
+        sample.z += colour_detail_3.z;
+    }
+
+    // -------------- DOT 3 --------------
+    if (m_enable_dot_3 == 1)
+    {
+        float3 small_dot_3 = smallDot(uvOffset, positionUV, m_dot_brightness_detail_3,
+                             m_colour_detail_3,m_dot_distance_detail_3);
+                                
+        sample.x += small_dot_3.x;
+        sample.y += small_dot_3.y;
+        sample.z += small_dot_3.z;
+    }
+
+    // -------------- SECONDARY DETAIL 3 --------------
+    if (m_enable_secondary_detail_3 == 1)
+    {
+        float3 secondary_3 = secondary(uvOffset, positionUV, m_secondary_brightness_detail_3,
+                             m_colour_detail_3, m_secondary_size_detail_3, 7.55f, m_angles, 
+                             m_type_secondary_details);
+
+        if (m_type_secondary_details == 1)
+        {
+            float3 secondary_3_edge = secondary(uvOffset, positionUV, m_secondary_brightness_detail_3,
+                                       m_colour_detail_3, m_secondary_size_detail_3 - m_secondary_size_detail_3*0.1f, 
+                                       7.55f, m_angles, m_type_secondary_details);
+
+            secondary_3_edge = secondary_3 - secondary_3_edge;
+            secondary_3 += secondary_3_edge;
+        }
+
+        sample.x += secondary_3.x;
+        sample.y += secondary_3.y;
+        sample.z += secondary_3.z;
+    }
+
+    // -------------- DETAIL 4 --------------
+	uvOffset = lerp2D(uv,uvDistance,m_distance_detail_4);
+	
+    if (m_enable_detail_4 == 1)
+    {
+        float3 colour_detail_4 = detail(uvOffset, positionUV, m_size_detail_4, m_colour_detail_4, 
+                                 m_shift_detail_4, m_angles, m_type_secondary_details);
+
+        if (m_type_secondary_details == 1)
+        {
+            float shift_detail_4_average = (m_shift_detail_4.x + m_shift_detail_4.y +
+                                            m_shift_detail_4.z)/3;
+            float3 colour_detail_4_edge = detail(uvOffset, positionUV, m_size_detail_4 - 
+                                          m_size_detail_4*0.1f, m_colour_detail_4, 
+                                          float3(shift_detail_4_average, shift_detail_4_average, 
+                                          shift_detail_4_average), m_angles, m_type_secondary_details);
+
+            colour_detail_4_edge = colour_detail_4 - colour_detail_4_edge;
+            colour_detail_4 += colour_detail_4_edge;
+        }
+
+        sample.x += colour_detail_4.x;
+        sample.y += colour_detail_4.y;
+        sample.z += colour_detail_4.z;
+    }
+
+    // -------------- DOT 4 --------------
+    if (m_enable_dot_4 == 1)
+    {
+        float3 small_dot_4 = smallDot(uvOffset, positionUV, m_dot_brightness_detail_4,
+                             m_colour_detail_4,m_dot_distance_detail_4);
+                                
+        sample.x += small_dot_4.x;
+        sample.y += small_dot_4.y;
+        sample.z += small_dot_4.z;
+    }
+
+    // -------------- SECONDARY DETAIL 4 --------------
+    if (m_enable_secondary_detail_4 == 1)
+    {
+        float3 secondary_4 = secondary(uvOffset, positionUV, m_secondary_brightness_detail_4,
+                             m_colour_detail_4, m_secondary_size_detail_4, 7.55f, m_angles, 
+                             m_type_secondary_details);
+
+        if (m_type_secondary_details == 1)
+        {
+            float3 secondary_4_edge = secondary(uvOffset, positionUV, m_secondary_brightness_detail_4,
+                                       m_colour_detail_4, m_secondary_size_detail_4 - m_secondary_size_detail_4*0.1f, 
+                                       7.55f, m_angles, m_type_secondary_details);
+
+            secondary_4 = secondary_4 - secondary_4_edge;
+            secondary_4 += secondary_4_edge;
+        }
+
+        sample.x += secondary_4.x;
+        sample.y += secondary_4.y;
+        sample.z += secondary_4.z;
+    }
+
+    // assign result to output image
+    dst() = sample;
+  }
+
+};
